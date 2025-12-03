@@ -1,14 +1,10 @@
-const LOGIN_BASE_URL = process.env.SALESFORCE_LOGIN_BASE_URL ?? "https://test.salesforce.com";
+const LOGIN_BASE_URL =
+  process.env.SALESFORCE_LOGIN_BASE_URL ?? "https://test.salesforce.com";
 const CLIENT_ID = process.env.SALESFORCE_CLIENT_ID;
 const CLIENT_SECRET = process.env.SALESFORCE_CLIENT_SECRET;
 const USERNAME = process.env.SALESFORCE_USERNAME;
 const PASSWORD = process.env.SALESFORCE_PASSWORD;
-
-console.log("Salesforce Login Base URL:", LOGIN_BASE_URL);
-console.log("Salesforce Client ID:", CLIENT_ID);
-console.log("Salesforce Client Secret:", CLIENT_SECRET);
-console.log("Salesforce Username:", USERNAME);
-console.log("Salesforce Password:", PASSWORD);
+const SECURITY_TOKEN = process.env.SALESFORCE_SECURITY_TOKEN ?? "";
 
 type AuthResult = {
   accessToken: string;
@@ -17,9 +13,26 @@ type AuthResult = {
 };
 
 let cachedAuth: AuthResult | null = null;
+let lastAuthSuccessAt: number | null = null;
+let lastAuthError: string | null = null;
+let lastAuthAttempt:
+  | {
+      loginBaseUrl: string;
+      clientId: string;
+      username?: string;
+    }
+  | null = null;
 
 const PASSWORD_GRANT_TYPE = "password";
 const EXPIRY_MARGIN_MS = 60 * 1000;
+const mask = (value?: string | null) => {
+  if (!value) return "<not-set>";
+  if (value.length <= 6) return value.replace(/./g, "*");
+  return `${value.slice(0, 3)}***${value.slice(-3)}`;
+};
+
+const buildPassword = () =>
+  SECURITY_TOKEN ? `${PASSWORD ?? ""}${SECURITY_TOKEN}` : PASSWORD ?? "";
 
 function hasCredentials(): boolean {
   return Boolean(CLIENT_ID && CLIENT_SECRET && USERNAME && PASSWORD);
@@ -37,7 +50,13 @@ async function requestToken(): Promise<AuthResult> {
   params.append("client_id", CLIENT_ID!);
   params.append("client_secret", CLIENT_SECRET!);
   params.append("username", USERNAME!);
-  params.append("password", PASSWORD!);
+  params.append("password", buildPassword());
+
+  lastAuthAttempt = {
+    loginBaseUrl: LOGIN_BASE_URL,
+    clientId: mask(CLIENT_ID),
+    username: USERNAME,
+  };
 
   const response = await fetch(`${LOGIN_BASE_URL}/services/oauth2/token`, {
     method: "POST",
@@ -46,8 +65,6 @@ async function requestToken(): Promise<AuthResult> {
     },
     body: params.toString(),
   });
-
-  console.log("response&&&&&------", response);
 
   if (!response.ok) {
     const errorBody = await response.text();
@@ -76,6 +93,7 @@ async function requestToken(): Promise<AuthResult> {
 
 export async function ensureSalesforceAuth(): Promise<AuthResult | null> {
   if (!hasCredentials()) {
+    lastAuthError = "Missing Salesforce credentials";
     return null;
   }
 
@@ -84,8 +102,27 @@ export async function ensureSalesforceAuth(): Promise<AuthResult | null> {
     cachedAuth.expiresAt - EXPIRY_MARGIN_MS <= Date.now();
 
   if (shouldRefresh) {
-    cachedAuth = await requestToken();
+    try {
+      cachedAuth = await requestToken();
+      lastAuthSuccessAt = Date.now();
+      lastAuthError = null;
+      console.log(
+        "[Salesforce] Access token generated successfully at",
+        new Date(lastAuthSuccessAt).toISOString()
+      );
+    } catch (error) {
+      lastAuthError =
+        error instanceof Error ? error.message : String(error);
+      throw error;
+    }
   }
 
   return cachedAuth;
 }
+
+export const getSalesforceAuthStatus = () => ({
+  connected: lastAuthSuccessAt !== null,
+  lastSuccessAt: lastAuthSuccessAt,
+  error: lastAuthError,
+  lastAttempt,
+});

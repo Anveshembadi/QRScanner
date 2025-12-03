@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Location from 'expo-location';
-import { ScanBarcode, MapPin, CheckCircle2, AlertCircle } from 'lucide-react-native';
+import { ScanBarcode, MapPin, CheckCircle2, AlertCircle, Database } from 'lucide-react-native';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import AccountSelector from '@/components/AccountSelector';
 import { useKitTracking } from '@/contexts/kit-tracking-context';
@@ -18,6 +18,10 @@ export default function TrackKitScreen() {
   const [currentLocation, setCurrentLocation] = useState<LocationType | null>(null);
   const [currentKitId, setCurrentKitId] = useState<string | null>(null);
   const { currentSession, addScannedKit, updateKitAccount } = useKitTracking();
+
+  const salesforceStatusQuery = trpc.accounts.status.useQuery();
+  const salesforceAuthStatus = salesforceStatusQuery.data?.auth;
+  const salesforceAccountsStatus = salesforceStatusQuery.data?.accounts;
 
   const accountsQuery = trpc.accounts.nearby.useQuery(
     currentLocation
@@ -187,7 +191,7 @@ export default function TrackKitScreen() {
         </View>
 
         <View style={styles.permissionSection}>
-          <Text style={styles.sectionTitle}>Permissions Status</Text>
+          <Text style={styles.sectionTitle}>Permissions & Integrations</Text>
           
           <View style={styles.permissionCard}>
             <MapPin color={locationPermission === 'granted' ? '#10b981' : '#f59e0b'} size={24} />
@@ -198,6 +202,60 @@ export default function TrackKitScreen() {
               </Text>
             </View>
             {locationPermission === 'granted' ? (
+              <CheckCircle2 color="#10b981" size={20} />
+            ) : (
+              <AlertCircle color="#f59e0b" size={20} />
+            )}
+          </View>
+
+          <View style={styles.permissionCard}>
+            <Database color={salesforceAuthStatus?.connected ? '#10b981' : '#f59e0b'} size={24} />
+            <View style={styles.permissionInfo}>
+              <Text style={styles.permissionLabel}>Salesforce Authentication</Text>
+              <Text style={styles.permissionStatus}>
+                {salesforceStatusQuery.isLoading
+                  ? 'Generating access token...'
+                  : salesforceAuthStatus?.connected
+                  ? 'Salesforce connection is success'
+                  : 'Authentication failed'}
+              </Text>
+              {salesforceAuthStatus?.lastSuccessAt && (
+                <Text style={styles.permissionSubStatus}>
+                  Last success: {new Date(salesforceAuthStatus.lastSuccessAt).toLocaleTimeString()}
+                </Text>
+              )}
+              {!salesforceAuthStatus?.connected && salesforceAuthStatus?.error && (
+                <Text style={styles.permissionError}>{salesforceAuthStatus.error}</Text>
+              )}
+            </View>
+            {salesforceAuthStatus?.connected ? (
+              <CheckCircle2 color="#10b981" size={20} />
+            ) : (
+              <AlertCircle color="#f59e0b" size={20} />
+            )}
+          </View>
+
+          <View style={styles.permissionCard}>
+            <Database color={salesforceAccountsStatus?.connected ? '#10b981' : '#f59e0b'} size={24} />
+            <View style={styles.permissionInfo}>
+              <Text style={styles.permissionLabel}>Salesforce Accounts</Text>
+              <Text style={styles.permissionStatus}>
+                {salesforceStatusQuery.isLoading
+                  ? 'Fetching accounts...'
+                  : salesforceAccountsStatus?.connected
+                  ? 'Accounts fetched successfully'
+                  : 'Accounts unavailable'}
+              </Text>
+              {salesforceAccountsStatus?.lastSyncedAt && (
+                <Text style={styles.permissionSubStatus}>
+                  Last synced: {new Date(salesforceAccountsStatus.lastSyncedAt).toLocaleTimeString()}
+                </Text>
+              )}
+              {!salesforceAccountsStatus?.connected && salesforceAccountsStatus?.error && (
+                <Text style={styles.permissionError}>{salesforceAccountsStatus.error}</Text>
+              )}
+            </View>
+            {salesforceAccountsStatus?.connected ? (
               <CheckCircle2 color="#10b981" size={20} />
             ) : (
               <AlertCircle color="#f59e0b" size={20} />
@@ -405,6 +463,16 @@ const styles = StyleSheet.create({
   permissionStatus: {
     fontSize: 12,
     color: '#64748b',
+  },
+  permissionSubStatus: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 4,
+  },
+  permissionError: {
+    fontSize: 11,
+    color: '#f87171',
+    marginTop: 4,
   },
   scanSection: {
     marginHorizontal: 16,
