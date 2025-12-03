@@ -17,11 +17,17 @@ export default function TrackKitScreen() {
   const [showAccountSelector, setShowAccountSelector] = useState(false);
   const [currentScannedCode, setCurrentScannedCode] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<LocationType | null>(null);
+  const [currentKitId, setCurrentKitId] = useState<string | null>(null);
   const { currentSession, addScannedKit, updateKitAccount } = useKitTracking();
 
   const accountsQuery = useQuery({
     queryKey: ['accounts', currentLocation],
-    queryFn: () => fetchNearestAccounts(currentLocation!),
+    queryFn: () => {
+      if (!currentLocation) {
+        throw new Error('Location not available for account lookup');
+      }
+      return fetchNearestAccounts(currentLocation);
+    },
     enabled: currentLocation !== null && showAccountSelector,
   });
 
@@ -100,6 +106,8 @@ export default function TrackKitScreen() {
 
     if (location) {
       console.log('Location captured, opening account selection');
+      const newKit = addScannedKit(code, location);
+      setCurrentKitId(newKit.id);
       setCurrentScannedCode(code);
       setCurrentLocation(location);
       setShowAccountSelector(true);
@@ -107,26 +115,29 @@ export default function TrackKitScreen() {
   };
 
   const handleAccountSelected = (account: SalesforceAccount) => {
-    if (!currentScannedCode || !currentLocation) return;
+    if (!currentKitId) return;
 
     console.log('Account selected:', account);
 
-    const newKit = addScannedKit(currentScannedCode, currentLocation);
-    updateKitAccount(newKit.id, account);
+    updateKitAccount(currentKitId, account);
+
+    const kitCode = currentScannedCode;
 
     setShowAccountSelector(false);
+    setCurrentKitId(null);
     setCurrentScannedCode(null);
     setCurrentLocation(null);
 
     Alert.alert(
       'Kit Tracked Successfully',
-      `Kit ${currentScannedCode} has been associated with ${account.name}`,
+      `Kit ${kitCode ?? currentKitId} has been associated with ${account.name}`,
       [{ text: 'OK' }]
     );
   };
 
   const handleAccountSelectionCancel = () => {
     setShowAccountSelector(false);
+    setCurrentKitId(null);
     setCurrentScannedCode(null);
     setCurrentLocation(null);
   };

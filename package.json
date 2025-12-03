@@ -3,9 +3,13 @@
   "main": "expo-router/entry",
   "version": "1.0.0",
   "scripts": {
-    "start": "bunx rork start -p o27vciagakbrnq9yg8i53 --tunnel",
-    "start-web": "bunx rork start -p o27vciagakbrnq9yg8i53 --web --tunnel",
-    "start-web-dev": "DEBUG=expo* bunx rork start -p o27vciagakbrnq9yg8i53 --web --tunnel",
+    "start": "bunx expo start --tunnel",
+    "start-web": "bunx expo start --web --tunnel",
+    "start-web-dev": "DEBUG=expo* bunx expo start --web --tunnel",
+    "local": "bunx expo start",
+    "local:web": "bunx expo start --web",
+    "local:ios": "bunx expo start --ios",
+    "local:android": "bunx expo start --android",
     "lint": "expo lint"
   },
   "dependencies": {
@@ -58,6 +62,7 @@
     "@types/react": "~19.1.10",
     "eslint": "^9.31.0",
     "eslint-config-expo": "~10.0.0",
+    "rork": "^1.0.1",
     "typescript": "~5.9.2"
   },
   "private": true
