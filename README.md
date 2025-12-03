@@ -316,3 +316,24 @@ For mobile apps, you'll configure your app's deep linking scheme in `app.json`.
 Rork builds fully native mobile apps using React Native and Expo - the same technology stack used by Discord, Shopify, Coinbase, Instagram, and nearly 30% of the top 100 apps on the App Store.
 
 Your Rork app is production-ready and can be published to both the App Store and Google Play Store. You can also export your app to run on the web, making it truly cross-platform.
+
+## Salesforce Integration
+
+The app now queries Salesforce Accounts in real time from the backend. Set the following environment variables before starting the server (for example in `.env`):
+
+```
+SALESFORCE_LOGIN_BASE_URL=https://test.salesforce.com
+SALESFORCE_CLIENT_ID=<connected-app-client-id>
+SALESFORCE_CLIENT_SECRET=<connected-app-client-secret>
+SALESFORCE_USERNAME=<username>
+SALESFORCE_PASSWORD=<password+security-token>
+SALESFORCE_LATITUDE_FIELD=BillingLatitude   # Or your custom Latitude__c field
+SALESFORCE_LONGITUDE_FIELD=BillingLongitude # Or your custom Longitude__c field
+SALESFORCE_API_VERSION=v63.0
+SALESFORCE_SEARCH_RADIUS_KM=25
+SALESFORCE_MAX_RESULTS=10
+```
+
+With these in place, the backend automatically obtains/refreshes an access token using the OAuth password flow and falls back to mock data only when credentials are missing.
+
+`npx expo start `

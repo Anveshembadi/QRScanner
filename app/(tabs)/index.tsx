@@ -2,13 +2,12 @@ import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Modal, ActivityIndicator, Alert, Platform } from 'react-native';
 import { Stack } from 'expo-router';
 import * as Location from 'expo-location';
-import { useQuery } from '@tanstack/react-query';
 import { ScanBarcode, MapPin, CheckCircle2, AlertCircle } from 'lucide-react-native';
 import BarcodeScanner from '@/components/BarcodeScanner';
 import AccountSelector from '@/components/AccountSelector';
 import { useKitTracking } from '@/contexts/kit-tracking-context';
 import { Location as LocationType, SalesforceAccount } from '@/types/kit';
-import { fetchNearestAccounts } from '@/services/salesforce-mock';
+import { trpc } from '@/lib/trpc';
 
 export default function TrackKitScreen() {
   const [showScanner, setShowScanner] = useState(false);
@@ -20,16 +19,20 @@ export default function TrackKitScreen() {
   const [currentKitId, setCurrentKitId] = useState<string | null>(null);
   const { currentSession, addScannedKit, updateKitAccount } = useKitTracking();
 
-  const accountsQuery = useQuery({
-    queryKey: ['accounts', currentLocation],
-    queryFn: () => {
-      if (!currentLocation) {
-        throw new Error('Location not available for account lookup');
-      }
-      return fetchNearestAccounts(currentLocation);
-    },
-    enabled: currentLocation !== null && showAccountSelector,
-  });
+  const accountsQuery = trpc.accounts.nearby.useQuery(
+    currentLocation
+      ? {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+        }
+      : {
+          latitude: 0,
+          longitude: 0,
+        },
+    {
+      enabled: currentLocation !== null && showAccountSelector,
+    }
+  );
 
   useEffect(() => {
     checkLocationPermission();
